@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Audio 3D - Esferas Musicales</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        canvas {
+            border: none;
+            cursor: grab;
+        }
+        
+        canvas:active {
+            cursor: grabbing;
+        }
+        
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 300px;
+        }
+        
+        .control-panel {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-panel h3 {
+            color: #fff;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .file-upload input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-upload-label {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            display: block;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .file-upload-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 15px 0;
+        }
+        
+        .volume-control label {
+            color: white;
+            font-size: 14px;
+            min-width: 20px;
+        }
+        
+        .volume-control input[type="range"] {
+            flex: 1;
+            height: 6px;
+            background: #333;
+            outline: none;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+        
+        .volume-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .control-btn.active {
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+            box-shadow: 0 4px 15px rgba(56, 239, 125, 0.3);
+        }
+        
+        .status-display {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status-display h4 {
+            color: #11998e;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        
+        .status-text {
+            color: #ccc;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .frequency-bars {
+            display: flex;
+            gap: 2px;
+            height: 40px;
+            align-items: end;
+            margin-top: 10px;
+        }
+        
+        .freq-bar {
+            width: 8px;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+        
+        .info-panel {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ccc;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+        
+        .info-panel strong {
+            color: #11998e;
+        }
+        
+        .credits {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <!-- Panel de Control de Audio -->
+        <div class="control-panel">
+            <h3>🎵 Control de Audio</h3>
+            
+            <div class="file-upload">
+                <input type="file" id="audioFile" accept="audio/*">
+                <label for="audioFile" class="file-upload-label">
+                    📁 Seleccionar Música
+                </label>
+            </div>
+            
+            <div class="volume-control">
+                <label>🔊</label>
+                <input type="range" id="volumeSlider" min="0" max="100" value="50">
+                <span id="volumeDisplay">50%</span>
+            </div>
+            
+            <div class="control-buttons">
+                <button id="playBtn" class="control-btn">▶️ Play</button>
+                <button id="pauseBtn" class="control-btn">⏸️ Pause</button>
+                <button id="stopBtn" class="control-btn">⏹️ Stop</button>
+            </div>
+        </div>
+        
+        <!-- Estado del Audio -->
+        <div class="status-display">
+            <h4>Estado del Sistema</h4>
+            <div id="statusText" class="status-text">Esperando música...</div>
+            <div class="frequency-bars" id="frequencyBars">
+                <div class="freq-bar" style="height: 2px;"></div>
+                <div class="freq-bar" style="height: 2px;"></div>
+                <div class="freq-bar" style="height: 2px;"></div>
+                <div class="freq-bar" style="height: 2px;"></div>
+                <div class="freq-bar" style="height: 2px;"></div>
+                <div class="freq-bar" style="height: 2px;"></div>
+                <div class="freq-bar" style="height: 2px;"></div>
+                <div class="freq-bar" style="height: 2px;"></div>
+            </div>
+        </div>
+        
+        <!-- Indicador de Forma -->
+        <div class="status-display">
+            <h4>🔺 Forma Actual</h4>
+            <div id="currentShapeText" class="status-text">Cubo</div>
+            <div id="transitionText" class="status-text" style="font-size: 10px; color: #666;"></div>
+        </div>
+        
+        <!-- Información -->
+        <div class="info-panel">
+            <strong>💡 Instrucciones:</strong><br>
+            1. Carga un archivo MP3, WAV o OGG<br>
+            2. Ajusta el volumen<br>
+            3. Presiona Play y disfruta<br>
+            <br>
+            <strong>🎨 Visualización:</strong><br>
+            • <span style="color: #ff6b6b;">Rojo</span>: Frecuencias bajas<br>
+            • <span style="color: #a78bfa;">Violeta</span>: Frecuencias medias<br>
+            • <span style="color: #4ade80;">Verde</span>: Frecuencias altas<br>
+            <br>
+            <strong>🔺 Formas Geométricas:</strong><br>
+            • Esferas: Siempre presentes (grandes y reactivas)<br>
+            • Figuras geométricas: Enormes, súper reactivas al audio<br>
+            • 6 formas que cambian: Cubo, Tetraedro, Octaedro, Estrella, Dodecaedro, Icosaedro<br>
+            <br>
+            <strong>🖱️ Controles:</strong><br>
+            • Arrastra para rotar vista<br>
+            • Sin música = animación automática
+        </div>
+    </div>
+
+    <canvas id="visualizer"></canvas>
+    <audio id="audioElement" crossorigin="anonymous" src="moonlight-sonata-beethoven-remix-265909.mp3" loop autoplay></audio>
+    
+    <div class="credits">
+        Visualizador de Audio 3D<br>
+        Versión Standalone
+    </div>
+
+    <script>
+        // Variables globales
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        const audioElement = document.getElementById('audioElement');
+        const audioFile = document.getElementById('audioFile');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeDisplay = document.getElementById('volumeDisplay');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusText = document.getElementById('statusText');
+        const frequencyBars = document.getElementById('frequencyBars').children;
+        
+        // Variables de audio
+        let audioContext = null;
+        let analyser = null;
+        let source = null;
+        let dataArray = null;
+        let isPlaying = false;
+        let isAudioLoaded = false;
+        
+        // Variables para suavizado de audio
+        let smoothedAudioData = { bass: 0, mid: 0, treble: 0, overall: 0 };
+        let previousAudioData = { bass: 0, mid: 0, treble: 0, overall: 0 };
+        const smoothingFactor = 0.15; // Factor de suavizado (0.1 = muy suave, 0.5 = más reactivo)
+        
+        // Variables para transiciones de formas
+        let currentShapeIndex = 0;
+        let nextShapeIndex = 1;
+        let lastShapeChange = 0;
+        let transitionProgress = 0;
+        const SHAPE_CHANGE_INTERVAL = 7000; // 7 segundos total (duplicado)
+        const TRANSITION_DURATION = 5000; // 5 segundos de transición (2 segundos estable)
+        
+        // Definir las formas disponibles (solo figuras geométricas, esferas siempre presentes)
+        const shapes = [
+            { name: 'cube', displayName: 'Cubo' },
+            { name: 'tetrahedron', displayName: 'Tetraedro' },
+            { name: 'octahedron', displayName: 'Octaedro' },
+            { name: 'star', displayName: 'Estrella' },
+            { name: 'dodecahedron', displayName: 'Dodecaedro' },
+            { name: 'icosahedron', displayName: 'Icosaedro' }
+        ];
+        
+        // Variables de animación
+        let animationId = null;
+        let time = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let currentRotationX = 0;
+        let currentRotationY = 0;
+        
+        // Configuración inicial
+        function init() {
+            resizeCanvas();
+            setupEventListeners();
+            initializeShapeTransitions();
+            autoLoadAudio();
+            animate();
+            updateStatus('Sistema iniciado - Cargando música automáticamente');
+        }
+        
+        // Función para cargar automáticamente el archivo de audio
+        function autoLoadAudio() {
+            updateStatus('Cargando Moonlight Sonata (Beethoven Remix)...');
+            
+            // Inicializar contexto de audio
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    
+                    source = audioContext.createMediaElementSource(audioElement);
+                    source.connect(analyser);
+                    analyser.connect(audioContext.destination);
+                    
+                    updateStatus('Contexto de audio creado correctamente');
+                } catch (error) {
+                    console.error('Error creando contexto de audio:', error);
+                    updateStatus('Error: No se pudo inicializar el audio');
+                }
+            }
+        }
+        
+        // Inicializar sistema de transiciones
+        function initializeShapeTransitions() {
+            lastShapeChange = Date.now();
+            currentShapeIndex = 0;
+            nextShapeIndex = 1;
+            transitionProgress = 0;
+            
+            const currentShape = shapes[currentShapeIndex];
+            updateStatus(`Forma actual: ${currentShape.displayName} - Esferas permanentes, figuras geométricas con transición`);
+        }
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        function setupEventListeners() {
+            // Redimensionar
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Controles de mouse
+            canvas.addEventListener('mousedown', startDrag);
+            canvas.addEventListener('mousemove', drag);
+            canvas.addEventListener('mouseup', stopDrag);
+            canvas.addEventListener('mouseleave', stopDrag);
+            
+            // Controles de audio
+            audioFile.addEventListener('change', handleFileSelect);
+            volumeSlider.addEventListener('input', updateVolume);
+            playBtn.addEventListener('click', playAudio);
+            pauseBtn.addEventListener('click', pauseAudio);
+            stopBtn.addEventListener('click', stopAudio);
+            
+            // Eventos del elemento de audio
+            audioElement.addEventListener('loadeddata', onAudioLoaded);
+            audioElement.addEventListener('play', onAudioPlay);
+            audioElement.addEventListener('pause', onAudioPause);
+            audioElement.addEventListener('ended', onAudioEnded);
+            audioElement.addEventListener('error', onAudioError);
+        }
+        
+        // Manejo de archivos
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                updateStatus(`Cargando: ${file.name}...`);
+                
+                const url = URL.createObjectURL(file);
+                audioElement.src = url;
+                isAudioLoaded = false;
+                
+                // Inicializar contexto de audio
+                if (!audioContext) {
+                    try {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        analyser = audioContext.createAnalyser();
+                        analyser.fftSize = 256;
+                        dataArray = new Uint8Array(analyser.frequencyBinCount);
+                        
+                        source = audioContext.createMediaElementSource(audioElement);
+                        source.connect(analyser);
+                        analyser.connect(audioContext.destination);
+                        
+                        updateStatus('Contexto de audio creado correctamente');
+                    } catch (error) {
+                        console.error('Error creando contexto de audio:', error);
+                        updateStatus('Error: No se pudo inicializar el audio');
+                    }
+                }
+            }
+        }
+        
+        // Controles de audio
+        function playAudio() {
+            if (!isAudioLoaded) {
+                updateStatus('Error: Primero carga un archivo de audio');
+                return;
+            }
+            
+            audioElement.play().then(() => {
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                updateStatus('Reproduciendo música - Disfruta la visualización!');
+            }).catch(error => {
+                console.error('Error reproduciendo:', error);
+                updateStatus('Error: No se pudo reproducir el archivo');
+            });
+        }
+        
+        function pauseAudio() {
+            audioElement.pause();
+            updateStatus('Música pausada');
+        }
+        
+        function stopAudio() {
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            isPlaying = false;
+            updateStatus('Música detenida');
+            updateButtons();
+        }
+        
+        function updateVolume() {
+            const volume = volumeSlider.value / 100;
+            audioElement.volume = volume;
+            volumeDisplay.textContent = `${volumeSlider.value}%`;
+        }
+        
+        // Eventos de audio
+        function onAudioLoaded() {
+            isAudioLoaded = true;
+            updateStatus('Audio cargado correctamente - Reproduciendo automáticamente');
+            updateButtons();
+            
+            // Reproducir automáticamente el audio
+            audioElement.play().then(() => {
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                updateStatus('Reproduciendo Moonlight Sonata - Disfruta la visualización!');
+            }).catch(error => {
+                console.error('Error reproduciendo automáticamente:', error);
+                updateStatus('Audio cargado - Haz clic en Play para reproducir');
+            });
+        }
+        
+        function onAudioPlay() {
+            isPlaying = true;
+            updateButtons();
+        }
+        
+        function onAudioPause() {
+            isPlaying = false;
+            updateButtons();
+        }
+        
+        function onAudioEnded() {
+            isPlaying = false;
+            updateStatus('Reproducción terminada');
+            updateButtons();
+        }
+        
+        function onAudioError(error) {
+            console.error('Error de audio:', error);
+            updateStatus('Error: Archivo de audio no compatible');
+            isAudioLoaded = false;
+            updateButtons();
+        }
+        
+        function updateButtons() {
+            playBtn.classList.toggle('active', isPlaying);
+            pauseBtn.classList.toggle('active', isPlaying);
+        }
+        
+        function updateStatus(message) {
+            statusText.textContent = message;
+        }
+        
+        // Obtener datos de audio
+        function getAudioData() {
+            if (!analyser || !isPlaying) {
+                // Suavizar hacia cero cuando no hay música
+                smoothedAudioData.bass = lerp(smoothedAudioData.bass, 0, smoothingFactor);
+                smoothedAudioData.mid = lerp(smoothedAudioData.mid, 0, smoothingFactor);
+                smoothedAudioData.treble = lerp(smoothedAudioData.treble, 0, smoothingFactor);
+                smoothedAudioData.overall = lerp(smoothedAudioData.overall, 0, smoothingFactor);
+                return smoothedAudioData;
+            }
+            
+            analyser.getByteFrequencyData(dataArray);
+            
+            const length = dataArray.length;
+            const bassEnd = Math.floor(length * 0.1);
+            const midEnd = Math.floor(length * 0.5);
+            
+            let bass = 0, mid = 0, treble = 0, overall = 0;
+            
+            // Calcular promedios
+            for (let i = 0; i < bassEnd; i++) bass += dataArray[i];
+            for (let i = bassEnd; i < midEnd; i++) mid += dataArray[i];
+            for (let i = midEnd; i < length; i++) treble += dataArray[i];
+            for (let i = 0; i < length; i++) overall += dataArray[i];
+            
+            // Normalizar valores
+            const currentAudio = {
+                bass: (bass / bassEnd) / 255,
+                mid: (mid / (midEnd - bassEnd)) / 255,
+                treble: (treble / (length - midEnd)) / 255,
+                overall: (overall / length) / 255
+            };
+            
+            // Aplicar suavizado usando interpolación lineal
+            smoothedAudioData.bass = lerp(smoothedAudioData.bass, currentAudio.bass, smoothingFactor);
+            smoothedAudioData.mid = lerp(smoothedAudioData.mid, currentAudio.mid, smoothingFactor);
+            smoothedAudioData.treble = lerp(smoothedAudioData.treble, currentAudio.treble, smoothingFactor);
+            smoothedAudioData.overall = lerp(smoothedAudioData.overall, currentAudio.overall, smoothingFactor);
+            
+            // Actualizar barras de frecuencia con valores suavizados
+            updateFrequencyBars(smoothedAudioData.bass, smoothedAudioData.mid, smoothedAudioData.treble, smoothedAudioData.overall);
+            
+            return smoothedAudioData;
+        }
+        
+        // Función de interpolación lineal para suavizado
+        function lerp(start, end, factor) {
+            return start + (end - start) * factor;
+        }
+        
+        // Función para manejar transiciones de formas (solo figuras geométricas)
+        function updateShapeTransition() {
+            const currentTime = Date.now();
+            const timeSinceLastChange = currentTime - lastShapeChange;
+            
+            // Todas las formas tienen el mismo intervalo
+            const currentInterval = SHAPE_CHANGE_INTERVAL;
+            
+            // Comprobar si es momento de cambiar de forma
+            if (timeSinceLastChange > currentInterval) {
+                currentShapeIndex = nextShapeIndex;
+                nextShapeIndex = (nextShapeIndex + 1) % shapes.length;
+                lastShapeChange = currentTime;
+                
+                const currentShape = shapes[currentShapeIndex];
+                const nextShape = shapes[nextShapeIndex];
+                updateStatus(`Forma actual: ${currentShape.displayName} → ${nextShape.displayName} (Esferas permanentes)`);
+                
+                // Actualizar el indicador visual de forma
+                const currentShapeText = document.getElementById('currentShapeText');
+                if (currentShapeText) {
+                    currentShapeText.textContent = currentShape.displayName;
+                }
+                
+                console.log(`Cambiando a forma: ${currentShape.name}`);
+            }
+            
+            // Calcular progreso de transición (0 = forma actual, 1 = forma siguiente)
+            transitionProgress = Math.min(1, timeSinceLastChange / currentInterval);
+            
+            // Actualizar indicador de transición
+            const transitionText = document.getElementById('transitionText');
+            if (transitionText) {
+                const timeRemaining = Math.max(0, currentInterval - timeSinceLastChange);
+                const stableTime = currentInterval - TRANSITION_DURATION;
+                
+                if (timeSinceLastChange <= stableTime) {
+                    // Período estable
+                    const stableRemaining = Math.max(0, stableTime - timeSinceLastChange);
+                    transitionText.textContent = `Forma estable: ${Math.round(stableRemaining / 1000)}s`;
+                } else {
+                    // Período de transición
+                    const transitionProg = Math.min(1, (timeSinceLastChange - stableTime) / TRANSITION_DURATION);
+                    transitionText.textContent = `Transición: ${Math.round(transitionProg * 100)}%`;
+                }
+            }
+        }
+        
+        function updateFrequencyBars(bass, mid, treble, overall) {
+            const values = [bass, bass, mid, mid, mid, treble, treble, overall];
+            for (let i = 0; i < frequencyBars.length; i++) {
+                const height = Math.max(2, values[i] * 40);
+                frequencyBars[i].style.height = `${height}px`;
+            }
+        }
+        
+        // Controles de mouse para rotación
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        
+        function startDrag(event) {
+            isDragging = true;
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+        }
+        
+        function drag(event) {
+            if (!isDragging) return;
+            
+            const deltaX = event.clientX - lastMouseX;
+            const deltaY = event.clientY - lastMouseY;
+            
+            targetRotationY += deltaX * 0.01;
+            targetRotationX += deltaY * 0.01;
+            
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+        }
+        
+        function stopDrag() {
+            isDragging = false;
+        }
+        
+        // Funciones para generar formas geométricas
+        function generateSphere(radius, density) {
+            const points = [];
+            for (let lat = 0; lat <= density; lat++) {
+                const theta = (lat / density) * Math.PI;
+                for (let lon = 0; lon <= density * 2; lon++) {
+                    const phi = (lon / (density * 2)) * 2 * Math.PI;
+                    const x = radius * Math.sin(theta) * Math.cos(phi);
+                    const y = radius * Math.sin(theta) * Math.sin(phi);
+                    const z = radius * Math.cos(theta);
+                    points.push({ x, y, z });
+                }
+            }
+            return points;
+        }
+        
+        function generateCube(size, density) {
+            const points = [];
+            const vertices = [
+                [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+                [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+            ];
+            const faces = [
+                [0, 1, 2, 3], [4, 7, 6, 5], [0, 4, 5, 1],
+                [2, 6, 7, 3], [0, 3, 7, 4], [1, 5, 6, 2]
+            ];
+            
+            for (let face of faces) {
+                const v1 = vertices[face[0]];
+                const v2 = vertices[face[1]];
+                const v3 = vertices[face[2]];
+                const v4 = vertices[face[3]];
+                
+                for (let i = 0; i < density; i++) {
+                    for (let j = 0; j < density; j++) {
+                        const u = i / (density - 1);
+                        const v = j / (density - 1);
+                        
+                        const p1 = [v1[0] + u * (v2[0] - v1[0]), v1[1] + u * (v2[1] - v1[1]), v1[2] + u * (v2[2] - v1[2])];
+                        const p2 = [v4[0] + u * (v3[0] - v4[0]), v4[1] + u * (v3[1] - v4[1]), v4[2] + u * (v3[2] - v4[2])];
+                        
+                        const x = (p1[0] + v * (p2[0] - p1[0])) * size;
+                        const y = (p1[1] + v * (p2[1] - p1[1])) * size;
+                        const z = (p1[2] + v * (p2[2] - p1[2])) * size;
+                        
+                        points.push({ x, y, z });
+                    }
+                }
+            }
+            return points;
+        }
+        
+        function generateTetrahedron(size, density) {
+            const points = [];
+            const vertices = [
+                [1, 1, 1], [-1, -1, 1], [-1, 1, -1], [1, -1, -1]
+            ];
+            const faces = [[0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 3, 2]];
+            
+            for (let face of faces) {
+                const v1 = vertices[face[0]];
+                const v2 = vertices[face[1]];
+                const v3 = vertices[face[2]];
+                
+                for (let i = 0; i < density; i++) {
+                    for (let j = 0; j < density - i; j++) {
+                        const u = i / density;
+                        const v = j / density;
+                        const w = 1 - u - v;
+                        
+                        if (w >= 0) {
+                            const x = (u * v1[0] + v * v2[0] + w * v3[0]) * size;
+                            const y = (u * v1[1] + v * v2[1] + w * v3[1]) * size;
+                            const z = (u * v1[2] + v * v2[2] + w * v3[2]) * size;
+                            points.push({ x, y, z });
+                        }
+                    }
+                }
+            }
+            return points;
+        }
+        
+        function generateOctahedron(size, density) {
+            const points = [];
+            const vertices = [
+                [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]
+            ];
+            const faces = [
+                [0, 2, 4], [0, 4, 3], [0, 3, 5], [0, 5, 2],
+                [1, 4, 2], [1, 3, 4], [1, 5, 3], [1, 2, 5]
+            ];
+            
+            for (let face of faces) {
+                const v1 = vertices[face[0]];
+                const v2 = vertices[face[1]];
+                const v3 = vertices[face[2]];
+                
+                for (let i = 0; i < density; i++) {
+                    for (let j = 0; j < density - i; j++) {
+                        const u = i / density;
+                        const v = j / density;
+                        const w = 1 - u - v;
+                        
+                        if (w >= 0) {
+                            const x = (u * v1[0] + v * v2[0] + w * v3[0]) * size;
+                            const y = (u * v1[1] + v * v2[1] + w * v3[1]) * size;
+                            const z = (u * v1[2] + v * v2[2] + w * v3[2]) * size;
+                            points.push({ x, y, z });
+                        }
+                    }
+                }
+            }
+            return points;
+        }
+        
+        function generateStar(size, density) {
+            const points = [];
+            const phi = (1 + Math.sqrt(5)) / 2;
+            const vertices = [
+                [0, 1, phi], [0, -1, phi], [0, 1, -phi], [0, -1, -phi],
+                [1, phi, 0], [-1, phi, 0], [1, -phi, 0], [-1, -phi, 0],
+                [phi, 0, 1], [phi, 0, -1], [-phi, 0, 1], [-phi, 0, -1]
+            ];
+            
+            for (let i = 0; i < vertices.length; i++) {
+                for (let j = i + 1; j < vertices.length; j++) {
+                    const v1 = vertices[i];
+                    const v2 = vertices[j];
+                    const distance = Math.sqrt(
+                        Math.pow(v1[0] - v2[0], 2) + 
+                        Math.pow(v1[1] - v2[1], 2) + 
+                        Math.pow(v1[2] - v2[2], 2)
+                    );
+                    
+                    if (distance < 2.5) {
+                        for (let k = 0; k < density; k++) {
+                            const t = k / density;
+                            const x = (v1[0] + t * (v2[0] - v1[0])) * size;
+                            const y = (v1[1] + t * (v2[1] - v1[1])) * size;
+                            const z = (v1[2] + t * (v2[2] - v1[2])) * size;
+                            points.push({ x, y, z });
+                        }
+                    }
+                }
+            }
+            return points;
+        }
+        
+        function generateDodecahedron(size, density) {
+            const points = [];
+            const phi = (1 + Math.sqrt(5)) / 2;
+            const vertices = [
+                [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
+                [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1],
+                [0, 1/phi, phi], [0, 1/phi, -phi], [0, -1/phi, phi], [0, -1/phi, -phi],
+                [1/phi, phi, 0], [1/phi, -phi, 0], [-1/phi, phi, 0], [-1/phi, -phi, 0],
+                [phi, 0, 1/phi], [phi, 0, -1/phi], [-phi, 0, 1/phi], [-phi, 0, -1/phi]
+            ];
+            
+            const faces = [
+                [0, 8, 10, 2, 16], [0, 16, 17, 1, 12], [1, 17, 3, 11, 9],
+                [2, 10, 6, 18, 13], [3, 13, 15, 7, 11], [4, 12, 0, 8, 14],
+                [5, 9, 1, 12, 14], [6, 15, 7, 19, 18], [7, 19, 5, 9, 11],
+                [8, 4, 14, 5, 10], [10, 6, 18, 4, 8], [13, 2, 16, 17, 15]
+            ];
+            
+            for (let face of faces) {
+                const center = [0, 0, 0];
+                for (let vi of face) {
+                    center[0] += vertices[vi][0];
+                    center[1] += vertices[vi][1];
+                    center[2] += vertices[vi][2];
+                }
+                center[0] /= face.length;
+                center[1] /= face.length;
+                center[2] /= face.length;
+                
+                for (let i = 0; i < face.length; i++) {
+                    const v1 = vertices[face[i]];
+                    const v2 = vertices[face[(i + 1) % face.length]];
+                    
+                    for (let j = 0; j < density / 2; j++) {
+                        for (let k = 0; k < density / 2; k++) {
+                            const u = j / density;
+                            const v = k / density;
+                            const w = 1 - u - v;
+                            
+                            if (w >= 0) {
+                                const x = (u * v1[0] + v * v2[0] + w * center[0]) * size;
+                                const y = (u * v1[1] + v * v2[1] + w * center[1]) * size;
+                                const z = (u * v1[2] + v * v2[2] + w * center[2]) * size;
+                                points.push({ x, y, z });
+                            }
+                        }
+                    }
+                }
+            }
+            return points;
+        }
+        
+        function generateIcosahedron(size, density) {
+            const points = [];
+            const phi = (1 + Math.sqrt(5)) / 2; // Número áureo
+            const invPhi = 1 / phi;
+            
+            // Vértices correctos del icosaedro normalizado
+            const vertices = [
+                // Rectángulos en plano XY
+                [-invPhi, 1, 0], [invPhi, 1, 0], [-invPhi, -1, 0], [invPhi, -1, 0],
+                // Rectángulos en plano YZ
+                [0, -invPhi, 1], [0, invPhi, 1], [0, -invPhi, -1], [0, invPhi, -1],
+                // Rectángulos en plano XZ
+                [1, 0, -invPhi], [1, 0, invPhi], [-1, 0, -invPhi], [-1, 0, invPhi]
+            ];
+            
+            // 20 caras triangulares correctas del icosaedro
+            const faces = [
+                // Caras superiores (parte superior)
+                [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+                // Caras medias superiores
+                [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+                // Caras medias inferiores
+                [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+                // Caras inferiores (parte inferior)
+                [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
+            ];
+            
+            for (let face of faces) {
+                const v1 = vertices[face[0]];
+                const v2 = vertices[face[1]];
+                const v3 = vertices[face[2]];
+                
+                for (let i = 0; i < density; i++) {
+                    for (let j = 0; j < density - i; j++) {
+                        const u = i / density;
+                        const v = j / density;
+                        const w = 1 - u - v;
+                        
+                        if (w >= 0) {
+                            const x = (u * v1[0] + v * v2[0] + w * v3[0]) * size;
+                            const y = (u * v1[1] + v * v2[1] + w * v3[1]) * size;
+                            const z = (u * v1[2] + v * v2[2] + w * v3[2]) * size;
+                            points.push({ x, y, z });
+                        }
+                    }
+                }
+            }
+            return points;
+        }
+        
+        // Funciones de renderizado 3D
+        function project3D(x, y, z, distance = 800) {
+            const factor = distance / (distance + z);
+            return {
+                x: x * factor,
+                y: y * factor,
+                scale: factor
+            };
+        }
+        
+        function rotate3D(x, y, z, rotX, rotY, rotZ) {
+            // Rotación en X
+            let tempY = y * Math.cos(rotX) - z * Math.sin(rotX);
+            let tempZ = y * Math.sin(rotX) + z * Math.cos(rotX);
+            y = tempY;
+            z = tempZ;
+            
+            // Rotación en Y
+            let tempX = x * Math.cos(rotY) + z * Math.sin(rotY);
+            tempZ = -x * Math.sin(rotY) + z * Math.cos(rotY);
+            x = tempX;
+            z = tempZ;
+            
+            // Rotación en Z
+            tempX = x * Math.cos(rotZ) - y * Math.sin(rotZ);
+            tempY = x * Math.sin(rotZ) + y * Math.cos(rotZ);
+            x = tempX;
+            y = tempY;
+            
+            return { x, y, z };
+        }
+        
+        function drawShape(centerX, centerY, radius, color, dotSize, rotX, rotY, rotZ, audioData, density = 30, shapeType = 'sphere') {
+            // Respuesta al audio (figuras geométricas más reactivas)
+            let audioMultiplier = 1.0;
+            if (shapeType === 'geometric') {
+                audioMultiplier = 1.8; // Figuras geométricas más reactivas al audio
+            }
+            
+            const response = {
+                bass: audioData.bass * 0.4 * audioMultiplier,
+                mid: audioData.mid * 0.3 * audioMultiplier,
+                treble: audioData.treble * 0.35 * audioMultiplier,
+                overall: audioData.overall * 0.45 * audioMultiplier
+            };
+            
+            let basePoints = [];
+            
+            if (shapeType === 'sphere') {
+                // Esferas siempre presentes
+                basePoints = generateShapePoints('sphere', radius, density);
+                basePoints.forEach(point => {
+                    point.transitionAlpha = 1;
+                    point.shapeType = 'sphere';
+                });
+            } else {
+                // Determinar si estamos en período de transición para figuras geométricas
+                const timeSinceLastChange = Date.now() - lastShapeChange;
+                const currentShape = shapes[currentShapeIndex];
+                const currentInterval = SHAPE_CHANGE_INTERVAL;
+                
+                // Todas las formas tienen transición
+                const isTransitioning = timeSinceLastChange > (currentInterval - TRANSITION_DURATION);
+                
+                if (isTransitioning) {
+                    // Durante la transición, mezclar dos formas
+                    const stableTime = currentInterval - TRANSITION_DURATION;
+                    const transitionProg = Math.min(1, (timeSinceLastChange - stableTime) / TRANSITION_DURATION);
+                    
+                    // Generar puntos para forma actual (se achica)
+                    const currentScale = 1 - transitionProg; // Se achica de 1 a 0
+                    const currentPoints = generateShapePoints(currentShape.name, radius * currentScale, density);
+                    
+                    // Generar puntos para forma siguiente (crece)
+                    const nextShape = shapes[nextShapeIndex];
+                    const nextScale = transitionProg; // Crece de 0 a 1
+                    const nextPoints = generateShapePoints(nextShape.name, radius * nextScale, density);
+                    
+                    // Combinar puntos con opacidad basada en escala y marcar el tipo de forma
+                    currentPoints.forEach(point => {
+                        basePoints.push({
+                            ...point,
+                            transitionAlpha: currentScale,
+                            shapeType: currentShape.name
+                        });
+                    });
+                    
+                    nextPoints.forEach(point => {
+                        basePoints.push({
+                            ...point,
+                            transitionAlpha: nextScale,
+                            shapeType: nextShape.name
+                        });
+                    });
+                } else {
+                    // Forma estable
+                    basePoints = generateShapePoints(currentShape.name, radius, density);
+                    basePoints.forEach(point => {
+                        point.transitionAlpha = 1;
+                        point.shapeType = currentShape.name;
+                    });
+                }
+            }
+            
+            // Ciclo de convergencia al polo (efecto dinámico de web copy.html)
+            // Esferas y figuras geométricas tienen movimiento más dramático
+            let poleMultiplier = 1.0;
+            if (shapeType === 'sphere') {
+                poleMultiplier = 2.0; // Esferas
+            } else if (shapeType === 'geometric') {
+                poleMultiplier = 2.8; // Figuras geométricas aún más dramáticas
+            }
+            const poleMovement = Math.sin(time * 0.01) * 0.5 + 0.5 + response.bass * poleMultiplier;
+            
+            // Procesar puntos para visualización
+            const processedPoints = [];
+            
+            basePoints.forEach((point, index) => {
+                // Aplicar efecto de convergencia al polo para formas esféricas
+                let x = point.x;
+                let y = point.y;
+                let z = point.z;
+                
+                // Solo aplicar convergencia al polo si ESTE PUNTO específico es de una esfera
+                if (point.shapeType === 'sphere') {
+                    const distance = Math.sqrt(x*x + y*y + z*z);
+                    if (distance > 0) {
+                        const poleInfluence = Math.min(1, poleMovement);
+                        x = x * (1 - poleInfluence);
+                        y = y * (1 - poleInfluence);
+                        z = z + (radius - z) * poleInfluence;
+                    }
+                }
+                
+                // Rotación con respuesta de audio (suavizada)
+                const audioRotX = rotX + response.overall * 0.3;
+                const audioRotY = rotY + response.mid * 0.4;
+                const audioRotZ = rotZ + response.treble * 0.35;
+                
+                const rotated = rotate3D(x, y, z, audioRotX, audioRotY, audioRotZ);
+                const projected = project3D(rotated.x, rotated.y, rotated.z);
+                
+                // Visibilidad dinámica suave (sombreado leve)
+                const theta = Math.atan2(point.y, point.x);
+                const distance = Math.sqrt(point.x*point.x + point.y*point.y + point.z*point.z);
+                const phi = distance > 0 ? Math.acos(point.z / distance) : 0;
+                
+                // Durante transiciones, hacer efectos más suaves
+                const transitionSmoothing = 1.0; // Siempre suave
+                const waveVis1 = Math.sin(time * 0.015 + theta * 2 + response.mid * 2) * (0.15 * transitionSmoothing) + 0.85;
+                const waveVis2 = Math.sin(time * 0.02 + phi * 1.5 + response.treble * 3) * (0.15 * transitionSmoothing) + 0.85;
+                const depthVis = Math.max(0.7, (rotated.z + radius * 1.5) / (radius * 3));
+                
+                const visibility = waveVis1 * waveVis2 * depthVis * point.transitionAlpha;
+                // Esferas y figuras geométricas tienen puntos más grandes y más reactivos
+                let pointMultiplier = 1.0;
+                if (point.shapeType === 'sphere') {
+                    pointMultiplier = 2.0; // Esferas
+                } else if (shapeType === 'geometric') {
+                    pointMultiplier = 2.5; // Figuras geométricas aún más grandes
+                }
+                const audioSize = 1 + response.treble * 0.8 * pointMultiplier;
+                
+                processedPoints.push({
+                    x: centerX + projected.x,
+                    y: centerY + projected.y,
+                    z: rotated.z,
+                    scale: projected.scale,
+                    visibility: visibility,
+                    audioSize: audioSize
+                });
+            });
+            
+            // Ordenar por profundidad
+            processedPoints.sort((a, b) => a.z - b.z);
+            
+            // Dibujar puntos
+            processedPoints.forEach(point => {
+                const alpha = Math.max(0.6, Math.min(0.95, point.visibility));
+                const size = dotSize * point.scale * point.audioSize * (0.8 + alpha * 0.2);
+                
+                if (size > 0.2 && alpha > 0.5) {
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, size, 0, 2 * Math.PI);
+                    
+                    // Colores con intensidad de audio (suavizada)
+                    const intensity = 0.7 + response.overall * 0.25;
+                    let r, g, b;
+                    
+                    if (color === 'red') {
+                        r = Math.floor(255 * intensity);
+                        g = Math.floor(51 * intensity);
+                        b = Math.floor(51 * intensity);
+                    } else if (color === 'purple') {
+                        r = Math.floor(138 * intensity);
+                        g = Math.floor(43 * intensity);
+                        b = Math.floor(226 * intensity);
+                    } else if (color === 'green') {
+                        r = Math.floor(51 * intensity);
+                        g = Math.floor(255 * intensity);
+                        b = Math.floor(51 * intensity);
+                    }
+                    
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    ctx.fill();
+                }
+            });
+        }
+        
+        // Función auxiliar para generar puntos de forma específica
+        function generateShapePoints(shapeType, radius, density) {
+            switch (shapeType) {
+                case 'sphere':
+                    return generateSphere(radius * 5.0, density); // Esferas mucho más grandes
+                case 'cube':
+                    return generateCube(radius * 3.5, density); // Cubo mucho más grande
+                case 'tetrahedron':
+                    return generateTetrahedron(radius * 3.0, density); // Tetraedro mucho más grande
+                case 'octahedron':
+                    return generateOctahedron(radius * 3.5, density); // Octaedro mucho más grande
+                case 'star':
+                    return generateStar(radius * 2.8, density); // Estrella mucho más grande
+                case 'dodecahedron':
+                    return generateDodecahedron(radius * 2.5, Math.floor(density / 2)); // Dodecaedro mucho más grande
+                case 'icosahedron':
+                    return generateIcosahedron(radius * 3.2, density); // Icosaedro mucho más grande
+                default:
+                    return generateSphere(radius * 5.0, density);
+            }
+        }
+        
+        // Bucle de animación principal
+        function animate() {
+            // Limpiar canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // Suavizar rotación
+            currentRotationX += (targetRotationX - currentRotationX) * 0.1;
+            currentRotationY += (targetRotationY - currentRotationY) * 0.1;
+            
+            // Rotación automática cuando no hay interacción (más suave)
+            if (!isDragging) {
+                targetRotationY += 0.002;
+                targetRotationX = Math.sin(time * 0.0005) * 0.18;
+            }
+            
+            // Actualizar transiciones de formas
+            updateShapeTransition();
+            
+            const audioData = getAudioData();
+            
+            // Dibujar las esferas siempre presentes (más grandes y reactivas)
+            const sphereBaseRadius = 1.5;
+            const sphereExpansionMultiplier = 5.0;
+            
+            drawShape(centerX, centerY, (200 * sphereBaseRadius) + audioData.bass * 25 * sphereExpansionMultiplier, 'red', 2.2, 
+                      currentRotationX, currentRotationY, time * 0.005, audioData, 35, 'sphere');
+            
+            drawShape(centerX, centerY, (170 * sphereBaseRadius) + audioData.mid * 20 * sphereExpansionMultiplier, 'purple', 1.9,
+                      currentRotationX, currentRotationY, time * 0.006, audioData, 33, 'sphere');
+            
+            drawShape(centerX, centerY, (140 * sphereBaseRadius) + audioData.treble * 18 * sphereExpansionMultiplier, 'green', 1.6,
+                      currentRotationX, currentRotationY, time * 0.0075, audioData, 30, 'sphere');
+            
+            // Dibujar las figuras geométricas con transiciones (mucho más grandes)
+            const geometricBaseRadius = 2.5; // Radio base más grande para figuras geométricas
+            const geometricExpansionMultiplier = 8.0; // Expansión más dramática
+            
+            drawShape(centerX, centerY, (180 * geometricBaseRadius) + audioData.bass * 35 * geometricExpansionMultiplier, 'red', 2.5, 
+                      currentRotationX, currentRotationY, time * 0.009, audioData, 32, 'geometric');
+            
+            drawShape(centerX, centerY, (150 * geometricBaseRadius) + audioData.mid * 30 * geometricExpansionMultiplier, 'purple', 2.2,
+                      currentRotationX, currentRotationY, time * 0.011, audioData, 28, 'geometric');
+            
+            drawShape(centerX, centerY, (120 * geometricBaseRadius) + audioData.treble * 25 * geometricExpansionMultiplier, 'green', 1.9,
+                      currentRotationX, currentRotationY, time * 0.0125, audioData, 25, 'geometric');
+            
+            time++;
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Inicializar cuando la página carga
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
